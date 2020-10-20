@@ -129,59 +129,59 @@ exports.release = () => {
         message: 'Which version of Ghost is it compatible with?',
         default: '3.0.0'
     }])
-    .then(result => {
-        compatibleWithGhost = result.compatibleWithGhost;
-        return Promise.resolve();
-    })
-    .then(() => releaseUtils.releases.get({
-        userAgent: 'Casper',
-        uri: `https://api.github.com/repos/${REPO_READONLY}/releases`
-    }))
-    .then((response) => {
-        if (!response || !response.length) {
-            console.log('No releases found. Skipping...');
-            return;
-        }
+        .then(result => {
+            compatibleWithGhost = result.compatibleWithGhost;
+            return Promise.resolve();
+        })
+        .then(() => releaseUtils.releases.get({
+            userAgent: 'Casper',
+            uri: `https://api.github.com/repos/${REPO_READONLY}/releases`
+        }))
+        .then((response) => {
+            if (!response || !response.length) {
+                console.log('No releases found. Skipping...');
+                return;
+            }
 
-        let previousVersion = response[0].tag_name || response[0].name;
-        console.log(`Previous version: ${previousVersion}`);
-        return Promise.resolve(previousVersion);
-    })
-    .then((previousVersion) => {
-        const changelog = new releaseUtils.Changelog({
-            changelogPath: CHANGELOG_PATH,
-            folder: path.join(process.cwd(), '.')
+            let previousVersion = response[0].tag_name || response[0].name;
+            console.log(`Previous version: ${previousVersion}`);
+            return Promise.resolve(previousVersion);
+        })
+        .then((previousVersion) => {
+            const changelog = new releaseUtils.Changelog({
+                changelogPath: CHANGELOG_PATH,
+                folder: path.join(process.cwd(), '.')
+            });
+
+            changelog
+                .write({
+                    githubRepoPath: `https://github.com/${REPO}`,
+                    lastVersion: previousVersion
+                })
+                .sort()
+                .clean();
+
+            return Promise.resolve();
+        })
+        .then(() => releaseUtils.releases.create({
+            draft: true,
+            preRelease: false,
+            tagName: newVersion,
+            releaseName: newVersion,
+            userAgent: 'Casper',
+            uri: `https://api.github.com/repos/${REPO}/releases`,
+            github: {
+                token: config.github.token
+            },
+            content: [`**Compatible with Ghost ≥ ${compatibleWithGhost}**\n\n`],
+            changelogPath: CHANGELOG_PATH
+        }))
+        .then((response) => {
+            console.log(`\nRelease draft generated: ${response.releaseUrl}\n`);
+            return Promise.resolve();
+        })
+        .catch((err) => {
+            console.error(err);
+            process.exit(1);
         });
-
-        changelog
-            .write({
-                githubRepoPath: `https://github.com/${REPO}`,
-                lastVersion: previousVersion
-            })
-            .sort()
-            .clean();
-
-        return Promise.resolve();
-    })
-    .then(() => releaseUtils.releases.create({
-        draft: true,
-        preRelease: false,
-        tagName: newVersion,
-        releaseName: newVersion,
-        userAgent: 'Casper',
-        uri: `https://api.github.com/repos/${REPO}/releases`,
-        github: {
-            token: config.github.token
-        },
-        content: [`**Compatible with Ghost ≥ ${compatibleWithGhost}**\n\n`],
-        changelogPath: CHANGELOG_PATH
-    }))
-    .then((response) => {
-        console.log(`\nRelease draft generated: ${response.releaseUrl}\n`);
-        return Promise.resolve();
-    })
-    .catch((err) => {
-        console.error(err);
-        process.exit(1);
-    });
 };
